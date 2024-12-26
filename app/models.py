@@ -1,4 +1,4 @@
-﻿"""
+"""
 Definition of models.
 """
 
@@ -32,9 +32,17 @@ class Image(models.Model):
     path = models.FileField()
 
 class Order(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'В обработке'),
+        ('ready', 'Готов'),
+        ('completed', 'Выполнен'),
+        ('cancelled', 'Отменён')
+    ]
+    
     id = models.BigAutoField(primary_key=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
 
 class OrderProduct(models.Model):
     id = models.BigAutoField(primary_key=True)
@@ -80,10 +88,16 @@ class NewsImages(models.Model):
     def __str__(self):
         return f'Картинка для новости {self.news.title}'
 
+class OrderAdmin(admin.ModelAdmin):
+    list_display = ['id', 'user', 'created_at', 'status']
+    list_filter = ['status', 'created_at']
+    search_fields = ['user__username']
+    list_editable = ['status']
+
 admin.site.register(Category)
 admin.site.register(Product)
 admin.site.register(Image)
-admin.site.register(Order)
+admin.site.register(Order, OrderAdmin)
 admin.site.register(OrderProduct)
 admin.site.register(UserProfile)
 admin.site.register(Review)

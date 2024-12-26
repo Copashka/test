@@ -822,7 +822,8 @@ def cabinet(request):
         "form": password_form,
         "avatar_form": avatar_form,
         "avatar": avatar,
-        "reviews": user_reviews
+        "reviews": user_reviews,
+        "user_groups": request.user.groups.all()
     }
     return render(request, 'app/cabinet.html', context)
 

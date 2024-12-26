@@ -29,7 +29,7 @@ urlpatterns = [
              }
          ),
          name='login'),
-    path('logout/', LogoutView.as_view(next_page='/'), name='logout'),
+    path('logout/', LogoutView.as_view(template_name='app/login.html', next_page='/'), name='logout'),
     path('admin/', admin.site.urls),
     path('anketa/', views.anketa, name='anketa'),
     path('registration/', views.registration, name='registration'),
