@@ -1,4 +1,4 @@
-﻿"""
+"""
 Definition of forms.
 """
 
@@ -25,27 +25,41 @@ class MultipleFileField(forms.FileField):
         return result   
 
 class UserProfileForm(forms.ModelForm):
+    phone = forms.CharField(
+        max_length=15,
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'custom-input',
+            'placeholder': '+7 (999) 999-99-99'
+        })
+    )
+    address = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={
+            'class': 'custom-input',
+            'rows': 3,
+            'placeholder': 'Введите адрес доставки'
+        })
+    )
+    
     class Meta:
         model = UserProfile
-        fields = ['avatar']
-        labels = {'avatar': ''}
+        fields = ['avatar', 'phone', 'address']
+        labels = {
+            'avatar': '',
+            'phone': 'Номер телефона',
+            'address': 'Адрес доставки'
+        }
         
     def clean_avatar(self):
         avatar = self.cleaned_data['avatar']
-
-        try:
-            main, sub = avatar.content_type.split('/')
-            if not (main == 'image' and sub in ['jpeg', 'pjpeg', 'gif', 'png']):
-                raise forms.ValidationError(u'Please use a JPEG, '
-                    'GIF or PNG image.')
-
-        except AttributeError:
-            """
-            Handles case when we are updating the user profile
-            and do not supply a new avatar
-            """
-            pass
-
+        if avatar:
+            try:
+                main, sub = avatar.content_type.split('/')
+                if not (main == 'image' and sub in ['jpeg', 'pjpeg', 'gif', 'png']):
+                    raise forms.ValidationError('Пожалуйста, используйте изображение в формате JPEG, GIF или PNG.')
+            except AttributeError:
+                pass
         return avatar
         
 class BootstrapAuthenticationForm(AuthenticationForm):

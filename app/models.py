@@ -5,11 +5,19 @@ Definition of models.
 from django.db import models
 from django.contrib.auth.models import User, AbstractUser
 from django.contrib import admin
+from django.urls import reverse
+from django.utils.html import format_html
+from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 
 class UserProfile(models.Model):
     id = models.BigAutoField(primary_key=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    avatar = models.FileField()
+    avatar = models.FileField(upload_to='avatars/', null=True, blank=True)
+    phone = models.CharField(max_length=15, null=True, blank=True, verbose_name='Номер телефона')
+    address = models.TextField(null=True, blank=True, verbose_name='Адрес доставки')
+
+    def __str__(self):
+        return f'Профиль пользователя {self.user.username}'
 
 class Category(models.Model):
     id = models.BigAutoField(primary_key=True)
@@ -89,18 +97,99 @@ class NewsImages(models.Model):
         return f'Картинка для новости {self.news.title}'
 
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ['id', 'user', 'created_at', 'status']
+    list_display = ['id', 'get_username', 'created_at', 'status']
     list_filter = ['status', 'created_at']
     search_fields = ['user__username']
     list_editable = ['status']
 
+    def get_username(self, obj):
+        return format_html('<a href="{}">{}</a>',
+            reverse('admin:auth_user_change', args=[obj.user.id]),
+            obj.user.username)
+    get_username.short_description = 'Пользователь'
+    get_username.admin_order_field = 'user__username'
+
+class UserAdmin(BaseUserAdmin):
+    def get_phone(self, obj):
+        profile = UserProfile.objects.filter(user=obj).first()
+        return profile.phone if profile else '-'
+    get_phone.short_description = 'Телефон'
+
+    def get_address(self, obj):
+        profile = UserProfile.objects.filter(user=obj).first()
+        return profile.address if profile else '-'
+    get_address.short_description = 'Адрес'
+
+    list_display = BaseUserAdmin.list_display + ('get_phone', 'get_address')
+
+    def get_fieldsets(self, request, obj=None):
+        fieldsets = super().get_fieldsets(request, obj)
+        if obj:  # Только для существующих пользователей
+            profile = UserProfile.objects.filter(user=obj).first()
+            if not profile:
+                profile = UserProfile.objects.create(user=obj)
+                
+            fieldsets = list(fieldsets)
+            fieldsets.append(
+                ('Дополнительная информация', {
+                    'fields': ('user_phone', 'user_address'),
+                })
+            )
+        return fieldsets
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly_fields = super().get_readonly_fields(request, obj)
+        if obj:  # Только для существующих пользователей
+            return readonly_fields + ('user_phone', 'user_address')
+        return readonly_fields
+
+    def user_phone(self, obj):
+        profile = UserProfile.objects.filter(user=obj).first()
+        return profile.phone if profile else '-'
+    user_phone.short_description = 'Телефон'
+
+    def user_address(self, obj):
+        profile = UserProfile.objects.filter(user=obj).first()
+        return profile.address if profile else '-'
+    user_address.short_description = 'Адрес'
+
+class UserProfileAdmin(admin.ModelAdmin):
+    list_display = ['get_username', 'phone', 'address']
+    search_fields = ['user__username', 'phone', 'address']
+    list_filter = ['user']
+
+    def get_username(self, obj):
+        return format_html('<a href="{}">{}</a>',
+            reverse('admin:auth_user_change', args=[obj.user.id]),
+            obj.user.username)
+    get_username.short_description = 'Пользователь'
+    get_username.admin_order_field = 'user__username'
+
+class ReviewAdmin(admin.ModelAdmin):
+    list_display = ['id', 'get_username', 'product', 'grade', 'get_short_text']
+    list_filter = ['grade', 'product']
+    search_fields = ['user__username', 'text', 'product__name']
+
+    def get_username(self, obj):
+        return format_html('<a href="{}">{}</a>',
+            reverse('admin:auth_user_change', args=[obj.user.id]),
+            obj.user.username)
+    get_username.short_description = 'Пользователь'
+    get_username.admin_order_field = 'user__username'
+
+    def get_short_text(self, obj):
+        return obj.text[:50] + '...' if len(obj.text) > 50 else obj.text
+    get_short_text.short_description = 'Текст отзыва'
+
+admin.site.unregister(User)
+admin.site.register(User, UserAdmin)
 admin.site.register(Category)
 admin.site.register(Product)
 admin.site.register(Image)
 admin.site.register(Order, OrderAdmin)
 admin.site.register(OrderProduct)
-admin.site.register(UserProfile)
-admin.site.register(Review)
+admin.site.register(UserProfile, UserProfileAdmin)
+admin.site.register(Review, ReviewAdmin)
 admin.site.register(News)
 admin.site.register(NewsComments)
 admin.site.register(NewsImages)

@@ -62,7 +62,9 @@ def home(request):
     
     avatar = None
     if request.user.is_authenticated:
-        avatar = UserProfile.objects.filter(user=request.user).first()
+        user_profile = UserProfile.objects.filter(user=request.user).first()
+        if user_profile and user_profile.avatar:
+            avatar = user_profile.avatar.url
 
     return render(
         request,
@@ -781,6 +783,8 @@ def cart(request):
 
 @login_required
 def cabinet(request):
+    user_profile = UserProfile.objects.filter(user=request.user).first()
+    
     if request.method == 'POST' and 'password_change' in request.POST:
         password_form = BootstrapPasswordChangeForm(request.user, request.POST)
         if password_form.is_valid():
@@ -790,20 +794,21 @@ def cabinet(request):
     else:
         password_form = BootstrapPasswordChangeForm(request.user)
 
-    if request.method == 'POST' and 'avatar_upload' in request.POST:  
-        avatar_form = UserProfileForm(request.POST, request.FILES)
-        if avatar_form.is_valid() and 'avatar_upload' in request.POST:
-            avatar_data = avatar_form.cleaned_data['avatar']
-            user_profile = UserProfile.objects.filter(user=request.user).first()
+    if request.method == 'POST' and 'profile_update' in request.POST:
+        profile_form = UserProfileForm(request.POST, request.FILES, instance=user_profile)
+        if profile_form.is_valid():
             if user_profile:
-                user_profile.avatar = avatar_data
-                user_profile.save()
+                profile = profile_form.save(commit=False)
+                if 'avatar' in request.FILES:
+                    profile.avatar = request.FILES['avatar']
+                profile.save()
             else:
-                avatar = avatar_form.save(commit=False)
-                avatar.user = request.user
-                avatar.save()
+                profile = profile_form.save(commit=False)
+                profile.user = request.user
+                profile.save()
+            return redirect('cabinet')
     else:
-        avatar_form = UserProfileForm()
+        profile_form = UserProfileForm(instance=user_profile)
 
     active_orders = Order.objects.filter(user=request.user)
     user_reviews = Review.objects.filter(user=request.user)
@@ -812,16 +817,12 @@ def cabinet(request):
         order.items = OrderProduct.objects.filter(order=order)
         order.total_cost = sum(item.price * item.count for item in order.items)
         
-    avatar = None
-    if request.user.is_authenticated:
-        avatar = UserProfile.objects.filter(user=request.user).first()
-        
     context = {
         "title": "Кабинет",
         "active_orders": active_orders,
         "form": password_form,
-        "avatar_form": avatar_form,
-        "avatar": avatar,
+        "profile_form": profile_form,
+        "avatar": user_profile if user_profile and user_profile.avatar else None,
         "reviews": user_reviews,
         "user_groups": request.user.groups.all()
     }
